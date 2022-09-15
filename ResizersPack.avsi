@@ -651,7 +651,7 @@ function RatioResize(clip s, float "ratio", string "mode", int "mod", string "ke
     src_l = Default(src_left,  0)
     src_t = Default(src_top,   0)
     kernel= Default(kernel,"bicubic")
-    st    = Default(st, true)
+    st    = Default(st, false)
 
     r  = float(r)
 
