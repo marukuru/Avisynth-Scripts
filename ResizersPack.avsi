@@ -138,7 +138,7 @@
 ###     deep_resize(1280)
 ###
 ###
-function deep_resize(clip a, val "width", val "height", string "edge", string "flat", string "chroma", int "e_taps", int "f_taps", int "c_taps", int "deconv", float "sharpness", float "grain", float "th_rat", float "th", float "elast", int "qual", int "gpuid", bool "show") {
+function deep_resize(clip a, val "width", val "height", string "edge", string "flat", string "chroma", int "e_taps", int "f_taps", int "c_taps", int "deconv", float "sharpness", float "grain", float "th_rat", float "th", float "elast", int "qual", int "gpuid", bool "st", bool "show") {
 
     wu  = !Defined(width)
     hu  = !Defined(height)
@@ -238,13 +238,13 @@ function deep_resize(clip a, val "width", val "height", string "edge", string "f
 
             # nnedi3 one dimensional resize case
 
-            edge1   = krn1 == "nnedi3" ? oned ? nnedi3wrap(a8,w!=w2?factor:1,h!=h2?factor:1,nns=nns3,nsize=nsize3,qual=qual,etype=etype,pscrn=pscrn,cshift="none",HBD=true,gpuid=gpuid) : \
-                                                nnedi3wrap(a8,factor                       ,nns=nns ,nsize=nsize ,qual=qual,etype=etype,pscrn=pscrn,cshift="none",HBD=true,gpuid=gpuid) : \
+            edge1   = krn1 == "nnedi3" ? oned ? nnedi3wrap(a8,w!=w2?factor:1,h!=h2?factor:1,nns=nns3,nsize=nsize3,qual=qual,etype=etype,pscrn=pscrn,cshift="none",HBD=true,gpuid=gpuid,st=st) : \
+                                                nnedi3wrap(a8,factor                       ,nns=nns ,nsize=nsize ,qual=qual,etype=etype,pscrn=pscrn,cshift="none",HBD=true,gpuid=gpuid,st=st) : \
                                                 ConvertFormat(an,w2,h2,cs_out="",EOTFi="",kernel=krn1,taps=etp,tv_in=!fs,src_left=[0.0,0.0],src_top=[0.0,0.0])
 
         if (rat <= rth) {
 
-                      krn1 == "nnedi3" ? oned ? nnedi3resize(a,w2,h2,qual=qual,nns=nns3,nsize=nsize3,qual=qual,etype=etype,pscrn=pscrn,gpuid=gpuid) : edge1.propCopy(a) : edge1  # up/downscaling below ratio threshold
+                      krn1 == "nnedi3" ? oned ? nnedi3resize(a,w2,h2,qual=qual,nns=nns3,nsize=nsize3,qual=qual,etype=etype,pscrn=pscrn,gpuid=gpuid,st=st) : edge1.propCopy(a) : edge1  # up/downscaling below ratio threshold
 
         } else {
             # resizing to target when nnedi3 is used
@@ -326,7 +326,7 @@ function deep_resize(clip a, val "width", val "height", string "edge", string "f
 # Dependencies:
 #       see nnedi3wrap() below
 #
-function nnedi3resize(clip a, val "width", val "height", bool "HBD", float "sharpness", int "qual", int "nns", int "nsize", int "etype", int "pscrn", int "gpuid") {
+function nnedi3resize(clip a, val "width", val "height", bool "HBD", float "sharpness", int "qual", int "nns", int "nsize", int "etype", int "pscrn", int "gpuid", bool "st") {
 
     wu      = !Defined(width)
     hu      = !Defined(height)
@@ -362,7 +362,7 @@ function nnedi3resize(clip a, val "width", val "height", bool "HBD", float "shar
     rfactor = rw<factor && rh<factor
     krnn    = rfactor ? "Bicubic" : "Blackman"
 
-    nnedi3wrap(a,ws?1:factor,hs?1:factor,nns=nns,nsize=nsize,qual=qual,etype=etype,pscrn=pscrn,fwidth=w2,fheight=h2,ep0=rfactor?-0.5:6,ep1=0.25,sharpness=sharpness,cshift=krnn,HBD=HBD,gpuid=gpuid)
+    nnedi3wrap(a,ws?1:factor,hs?1:factor,nns=nns,nsize=nsize,qual=qual,etype=etype,pscrn=pscrn,fwidth=w2,fheight=h2,ep0=rfactor?-0.5:6,ep1=0.25,sharpness=sharpness,cshift=krnn,HBD=HBD,gpuid=gpuid,st=st)
 
     }
 
@@ -380,7 +380,7 @@ function nnedi3resize(clip a, val "width", val "height", bool "HBD", float "shar
 #       TransformsPack
 #       MasksPack (for model=1)
 #
-function waifu2xresize(clip a, val "width", val "height", int "model", int "noise", float "grain", bool "soothe", bool "tv_range", int "gpuid") {
+function waifu2xresize(clip a, val "width", val "height", int "model", int "noise", float "grain", bool "soothe", bool "tv_range", int "gpuid", bool "st") {
 
     pID    = color_propGet(a)
     bi     = pID[7]
@@ -441,7 +441,7 @@ function waifu2xresize(clip a, val "width", val "height", int "model", int "nois
     isy  ? ExtractR()                         : last
     !rgb ? MatchClip(a,matrix=pri,size=false) : last
 
-    so && FC && rw>1.25 && rh>1.25 ? Soothe(a.nnedi3wrap(factor,gpuid=gid),tv_range=tv) : last
+    so && FC && rw>1.25 && rh>1.25 ? Soothe(a.nnedi3wrap(factor,gpuid=gid,st=st),tv_range=tv) : last
 
     Eval(krnn+"resize(w2,h2"+(rfactor ? ",-0.5,0.25)" : ",taps=6)"))
 
@@ -466,7 +466,7 @@ function waifu2xresize(clip a, val "width", val "height", int "model", int "nois
 #       nnedi3
 #         SysInfo
 #
-function nnedi3wrap(clip a, int "xfactor", int "yfactor", int "field", bool "dh", int "nsize", int "nns", int "qual", int "etype", int "pscrn", string "cshift", int "fwidth", int "fheight", float "ep0", float "ep1", int_array "planes", bool "HBD", float "sharpness", int "gpuid") {
+function nnedi3wrap(clip a, int "xfactor", int "yfactor", int "field", bool "dh", int "nsize", int "nns", int "qual", int "etype", int "pscrn", string "cshift", int "fwidth", int "fheight", float "ep0", float "ep1", int_array "planes", bool "HBD", float "sharpness", int "gpuid", bool "st") {
 
     w       = width (a)
     h       = height(a)
@@ -485,6 +485,7 @@ function nnedi3wrap(clip a, int "xfactor", int "yfactor", int "field", bool "dh"
 
     dh      = Default(dh,     fb!=0)        # Set to true to switch to deinterlace mode
     gpuid   = Default(gpuid,      0)        # Set to -1 for "cpu" nnedi3
+    st      = Default(st,     false)        # Single threaded for trouble shooting
     fd      = Default(field,  !dh || fb==0 ? 1 : fb==1 ? 2 : 3)
     fd      = gpuid>-1 && fd<0 ? fb : fd
 
@@ -543,7 +544,7 @@ function nnedi3wrap(clip a, int "xfactor", int "yfactor", int "field", bool "dh"
 
     } else {
         for (i = 1, dh?1:xyf/2, 1) {
-            NNEDI3CL(        fd, dh=!dh||!hs, dw=!ws, nns=nns,nsize=nsize,qual=qual,etype=etype,pscrn=pscrn,device=gpuid,planes=planes)
+            NNEDI3CL(        fd, dh=!dh||!hs, dw=!ws, nns=nns,nsize=nsize,qual=qual,etype=etype,pscrn=pscrn,device=gpuid,planes=planes,st=st)
             }
     }
 
@@ -650,6 +651,7 @@ function RatioResize(clip s, float "ratio", string "mode", int "mod", string "ke
     src_l = Default(src_left,  0)
     src_t = Default(src_top,   0)
     kernel= Default(kernel,"bicubic")
+    st    = Default(st, true)
 
     r  = float(r)
 
